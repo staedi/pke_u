@@ -1,7 +1,7 @@
 # Python Keyphrase Extraction with Korean Language support
 
 ## Background
-[`pke`](https://github.com/boundinfl/pke) module is the one-stop shop for keyword extraction in Python (except `RAKE`). However, due to its lack of support for languages not included in [`Spacy`](https://spacy.io) language models, it cannot be applied on Korean text. The only change I made here is to add that functionality.
+[`pke`](https://github.com/boudinfl/pke) module is the one-stop shop for keyword extraction in Python (except `RAKE`). However, due to its lack of support for languages not included in [`Spacy`](https://spacy.io) language models, it cannot be applied on Korean text. The only change I made here is to add that functionality.
 
 ## Requirements
 The same requirements of `pke` are applied here as I only tweaked for the preprocessing of text. Additionally, to handle Korean text POS tagging, `konlpy` (for **Unix**-based systems) or `eunjeon` (for **Windows**-based systems) is needed. As I employed `Mecab` module, Mecab-ko should be installed before use.
