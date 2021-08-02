@@ -21,7 +21,7 @@ import logging
 from itertools import combinations, product
 from collections import defaultdict
 
-from pke.base import LoadFile, get_stopwords, get_stemmer_func
+from base import LoadFile, get_stopwords, get_stemmer_func
 
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
