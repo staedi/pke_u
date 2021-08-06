@@ -216,45 +216,133 @@ class RawTextReader(Reader):
             'SH':'NOUN','SL':'NOUN','SN':'NUM'}
 
             spacy_doc = Mecab()
+            text = text.replace('·',',').replace('+',',')
             for sentence_id, sentence in enumerate(sent_tokenize(text)):
                 words_list, lemmas_list, pos_list, char_offsets_list = [], [], [], []
                 offset = 0
                 
-                for words in word_tokenize(sentence):
-                    for idx, (word, pos) in enumerate(spacy_doc.pos(words)):
-                        if idx == 0:    # First element is added automatically
-                            words_list.append(word)
-                            lemmas_list.append(word)
-                            if len(word)==1 and not pos.startswith('S'):
-                                tag = 'NNB' # Arbitrary tagging
-                            elif pos == 'SL':
-                                tag = 'NNP'
+                for word_idx, words in enumerate(word_tokenize(sentence)):
+                    pos_by_word = spacy_doc.pos(words+' .')[:-1]
+
+                    # Forward Inflect suspected
+                    if pos_by_word[0][1] in ('NNP','NNG'):
+                        if word_idx < len(word_tokenize(sentence)): # Inflected into multiple PoS
+                            pos_by_context = spacy_doc.pos(' '.join(word_tokenize(sentence)[word_idx:word_idx+2]))[:2]  # PoS using following the word
+                            if pos_by_context[0][0] != pos_by_word[0][0]:
+                                spacy_pos = pos_by_context
                             else:
-                                tag = pos
-
-                            if idx == len(spacy_doc.pos(words))-1:
-                                pos_list.append(tag)
-
-                        elif pos in ('NNP','NNG'):  # Compound Nouns
-                            words_list[-1] += word
-                            lemmas_list[-1] += word
-
-                            if idx == len(spacy_doc.pos(words))-1:
-                                pos_list.append(tag)
-
+                                spacy_pos = pos_by_word
                         else:
-                            pos_list.append(tag)
-                            if tag.startswith('VV'):
-                                lemmas_list[-1] += '다'
-                                words_list[-1] = words
-                            elif tag in ('NNP','NNG'):
-                                words_list.append(word)
-                                lemmas_list.append(word)
-                                pos_list.append(pos)
-                            else:
-                                words_list[-1] = words
-                                lemmas_list[-1] = words
-                            break
+                            spacy_pos = pos_by_word
+                    else:
+                        spacy_pos = pos_by_word
+
+                    # print(words,spacy_pos)
+
+                    # # Abnormal character detection
+                    # if spacy_pos[0][1] == 'NNG':
+                    #     try:
+                    #         abnormal_offset = [words.find(pos[0]) for pos in spacy_pos].index(0)
+                    #     except ValueError:
+                    #         abnormal_offset = [words.find(pos[0][0]) for pos in spacy_pos].index(0)
+                    #     spacy_pos = spacy_pos[abnormal_offset:]
+
+                    # Backward Inflect suspected
+                    # if len(spacy_pos[0][0])==1 and spacy_pos[0][1]=='NNG' and pos_list:
+                    if spacy_pos[0][1]=='NNG' and pos_list:
+                        if pos_list[-1]=='NNG':
+                            pos_with_last = spacy_doc.pos(words_list[-1]+' '+words)
+                            try:
+                                last_offset = [(pos[1]=='NNB' and len(pos[0])==1) for pos in pos_with_last].index(True)
+                                spacy_pos = pos_with_last[last_offset:]
+                            except ValueError:
+                                pass
+                            # last_offset = [pos[0].find(spacy_pos[0][0]) for pos in pos_with_last].index(0)
+                            # spacy_pos = pos_with_last[last_offset:]
+
+                    # print(words,spacy_pos)
+
+                    # Subjective Nouns (Noun + descriptives)
+                    if len(spacy_pos)>1 and spacy_pos[0][1] in ('NNP','NNG','SL'):
+                        try:
+                            pos_offset = [pos[1] not in ('NNP','NNG','SL') for pos in spacy_pos].index(True)
+                            aux_offset = sum([len(word[0]) for word in spacy_pos[:pos_offset]])
+                            # aux_offset = words.find(spacy_pos[pos_offset-1][0][-1])+1
+                            # print(words,pos_offset,aux_offset)
+                        except ValueError:
+                            pos_offset = 1
+                            aux_offset = len(words)
+                    else:
+                        pos_offset = 1
+                        aux_offset = len(words)
+
+                    words_list.append(words[:aux_offset])
+                    # lemmas_list.append(spacy_pos[0][0])
+
+                    # Number
+                    if len(spacy_pos)>1 and spacy_pos[0][1]=='SN': #and spacy_pos[-1][1]=='SN':
+                        # words_list.append(words)
+                        lemmas_list.append(words)
+                    else:
+                        # words_list.append(words[:aux_offset])
+                        lemmas_list.append(spacy_pos[0][0])
+
+                    # if len(words)==1 and spacy_pos[0][1].startswith('N'):   # Dependent Nouns
+                    if len(spacy_pos[0][0])==1 and spacy_pos[0][1].startswith('N'):   # Dependent Nouns
+                        pos_list.append('NNB')
+                    elif len(spacy_pos)>1 and spacy_pos[0][1]=='SN': #and spacy_pos[-1][1]=='SN': # Number
+                        pos_list.append('SN')
+                    else:
+                        pos_list.append(spacy_pos[0][1].replace('SL','NNP'))
+
+                    if aux_offset < len(words):
+                        words_list.append(words[aux_offset:])
+                        lemmas_list.append(spacy_pos[pos_offset][0])
+                        pos_list.append(spacy_pos[pos_offset][1].replace('SL','NNP'))
+
+
+                    # words_list.append(words)
+                    # lemmas_list.append(spacy_pos[0][0])
+                    # if len(words)==1 and spacy_pos[0][1].startswith('N'):
+                    #     pos_list.append('NNB')
+                    # else:
+                    #     pos_list.append(spacy_pos[0][1].replace('SL','NNP'))
+
+                    # for idx, (word, pos) in enumerate(spacy_pos):
+                    #     # print(idx,(word,pos))
+                    #     if idx == 0:    # First element is added automatically
+                    #         words_list.append(word)
+                    #         lemmas_list.append(word)
+                    #         if len(word)==1 and not pos.startswith('S'):
+                    #             tag = 'NNB' # Arbitrary tagging
+                    #         elif pos == 'SL':
+                    #             tag = 'NNP'
+                    #         else:
+                    #             tag = pos
+
+                    #         if idx == len(spacy_pos)-1:
+                    #             pos_list.append(tag)
+
+                    #     elif pos in ('NNP','NNG'):  # Compound Nouns
+                    #         words_list[-1] += word
+                    #         lemmas_list[-1] += word
+
+                    #         if idx == len(spacy_pos)-1:
+                    #             pos_list.append(tag)
+
+                    #     else:
+                    #         pos_list.append(tag)
+                    #         if tag.startswith('VV'):
+                    #             lemmas_list[-1] += '다'
+                    #             words_list[-1] = words
+                    #         elif tag in ('NNP','NNG'):
+                    #             words_list.append(word)
+                    #             lemmas_list.append(word)
+                    #             pos_list.append(pos)
+                    #         else:
+                    #             words_list[-1] = words
+                    #             lemmas_list[-1] = words
+                    #         break
                 
                 for word in words_list:
                     if char_offsets_list:
@@ -269,6 +357,8 @@ class RawTextReader(Reader):
                     "POS": [pos for pos in pos_list],
                     "char_offsets": [offset for offset in char_offsets_list]
                 })
+
+                # print(sentences)
 
         doc = Document.from_sentences(
             sentences, input_file=kwargs.get('input_file', None), **kwargs)

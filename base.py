@@ -192,13 +192,15 @@ class LoadFile(object):
                 for idx, pos in enumerate(sentence.pos):
                     # if pos not in ('NNG','NNP') and pos != 'VV':
                     if pos not in ('NOUN','ADJ','VERB'):
-                        stoplist.append(sentence.words[idx])
+                        stoplist.append(sentence.stems[idx])
             self.stoplist = list(set(stoplist))
 
         # word normalization
         self.normalization = kwargs.get('normalization', 'stemming')
 
-        if self.normalization == 'stemming':
+        if self.language == 'ko': # Korean: PoS -> Stem
+            get_stem = lambda s: s.stems
+        elif self.normalization == 'stemming':
             stem = get_stemmer_func(self.language)
             get_stem = lambda s: [stem(w).lower() for w in s.words]
         else:
@@ -207,6 +209,7 @@ class LoadFile(object):
         # Populate Sentence.stems according to normalization
         for i, sentence in enumerate(self.sentences):
             self.sentences[i].stems = get_stem(sentence)
+            # print(get_stem(sentence))
 
         # POS normalization
         if getattr(doc, 'is_corenlp_file', False):
@@ -354,12 +357,17 @@ class LoadFile(object):
             # generate the ngrams
             for j in range(sentence.length):
                 for k in range(j + 1, min(j + 1 + skip, sentence.length + 1)):
-                    # add the ngram to the candidate container
-                    self.add_candidate(words=sentence.words[j:k],
-                                       stems=sentence.stems[j:k],
-                                       pos=sentence.pos[j:k],
-                                       offset=shift + j,
-                                       sentence_id=i)
+                    # Noun is at each end of the phrases (Korean)
+                    if self.language != 'ko' or (sentence.pos[j]=='NOUN' and sentence.pos[k-1]=='NOUN'):
+
+                        # add the ngram to the candidate container
+                        self.add_candidate(words=sentence.words[j:k],
+                                        stems=sentence.stems[j:k],
+                                        pos=sentence.pos[j:k],
+                                        offset=shift + j,
+                                        sentence_id=i)
+                    else:
+                        continue
 
     def longest_pos_sequence_selection(self, valid_pos=None):
         self.longest_sequence_selection(
@@ -378,7 +386,7 @@ class LoadFile(object):
 
         # loop through the sentences
         for i, sentence in enumerate(self.sentences):
-
+            
             # compute the offset shift for the sentence
             shift = sum([s.length for s in self.sentences[0:i]])
 
@@ -387,7 +395,7 @@ class LoadFile(object):
 
             # loop through the tokens
             for j, value in enumerate(key(self.sentences[i])):
-
+                
                 # add candidate offset in sequence and continue if not last word
                 if value in valid_values:
                     seq.append(j)
@@ -396,13 +404,16 @@ class LoadFile(object):
 
                 # add sequence as candidate if non empty
                 if seq:
+                    # Noun is at each end of the phrases (Korean)
+                    if self.language != 'ko' or (sentence.pos[seq[0]]=='NOUN' and sentence.pos[seq[-1]]=='NOUN'):
 
-                    # add the ngram to the candidate container
-                    self.add_candidate(words=sentence.words[seq[0]:seq[-1] + 1],
-                                       stems=sentence.stems[seq[0]:seq[-1] + 1],
-                                       pos=sentence.pos[seq[0]:seq[-1] + 1],
-                                       offset=shift + seq[0],
-                                       sentence_id=i)
+                        # add the ngram to the candidate container
+                        self.add_candidate(words=sentence.words[seq[0]:seq[-1] + 1],
+                                        stems=sentence.stems[seq[0]:seq[-1] + 1],
+                                        pos=sentence.pos[seq[0]:seq[-1] + 1],
+                                        offset=shift + seq[0],
+                                        sentence_id=i)
+
 
                 # flush sequence container
                 seq = []
