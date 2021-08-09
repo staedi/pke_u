@@ -247,6 +247,20 @@ class RawTextReader(Reader):
                     #         abnormal_offset = [words.find(pos[0][0]) for pos in spacy_pos].index(0)
                     #     spacy_pos = spacy_pos[abnormal_offset:]
 
+                    # Subjective Nouns (Noun + descriptives)
+                    if len(spacy_pos)>1 and spacy_pos[0][1] in ('NNP','NNG','SL'):
+                        try:
+                            pos_offset = [pos[1] not in ('NNP','NNG','SL') for pos in spacy_pos].index(True)
+                            aux_offset = sum([len(word[0]) for word in spacy_pos[:pos_offset]])
+                            # aux_offset = words.find(spacy_pos[pos_offset-1][0][-1])+1
+                            # print(words,pos_offset,aux_offset)
+                        except ValueError:
+                            pos_offset = 1
+                            aux_offset = len(words)
+                    else:
+                        pos_offset = 1
+                        aux_offset = len(words)
+
                     # Backward Inflect suspected
                     # if len(spacy_pos[0][0])==1 and spacy_pos[0][1]=='NNG' and pos_list:
                     if spacy_pos[0][1]=='NNG' and pos_list:
@@ -262,19 +276,19 @@ class RawTextReader(Reader):
 
                     # print(words,spacy_pos)
 
-                    # Subjective Nouns (Noun + descriptives)
-                    if len(spacy_pos)>1 and spacy_pos[0][1] in ('NNP','NNG','SL'):
-                        try:
-                            pos_offset = [pos[1] not in ('NNP','NNG','SL') for pos in spacy_pos].index(True)
-                            aux_offset = sum([len(word[0]) for word in spacy_pos[:pos_offset]])
-                            # aux_offset = words.find(spacy_pos[pos_offset-1][0][-1])+1
-                            # print(words,pos_offset,aux_offset)
-                        except ValueError:
-                            pos_offset = 1
-                            aux_offset = len(words)
-                    else:
-                        pos_offset = 1
-                        aux_offset = len(words)
+                    # # Subjective Nouns (Noun + descriptives)
+                    # if len(spacy_pos)>1 and spacy_pos[0][1] in ('NNP','NNG','SL'):
+                    #     try:
+                    #         pos_offset = [pos[1] not in ('NNP','NNG','SL') for pos in spacy_pos].index(True)
+                    #         aux_offset = sum([len(word[0]) for word in spacy_pos[:pos_offset]])
+                    #         # aux_offset = words.find(spacy_pos[pos_offset-1][0][-1])+1
+                    #         # print(words,pos_offset,aux_offset)
+                    #     except ValueError:
+                    #         pos_offset = 1
+                    #         aux_offset = len(words)
+                    # else:
+                    #     pos_offset = 1
+                    #     aux_offset = len(words)
 
                     words_list.append(words[:aux_offset])
                     # lemmas_list.append(spacy_pos[0][0])
